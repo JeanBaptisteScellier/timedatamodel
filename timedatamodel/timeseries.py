@@ -39,8 +39,8 @@ and a head/tail preview of the data.
 from __future__ import annotations
 
 import warnings
+from typing import TYPE_CHECKING
 
-import pandas as pd
 import polars as pl
 
 from ._repr import _TimeSeriesReprMixin
@@ -48,7 +48,21 @@ from .datashape import _REQUIRED_COLUMNS, _TIME_COLS, DataShape  # noqa: F401
 from .enums import DataType, Frequency, TimeSeriesType
 from .units import _get_registry as _get_pint_registry
 
+if TYPE_CHECKING:
+    import pandas as pd
+
 _TS_DTYPE = pl.Datetime("us", time_zone="UTC")
+
+
+def _import_pandas(feature: str):
+    """Import pandas lazily; it is an optional dependency (the ``[pandas]`` extra)."""
+    try:
+        import pandas as pd
+    except ImportError as e:
+        raise ImportError(
+            f"pandas is required for {feature}. Install it with: pip install 'timedatamodel[pandas]'"
+        ) from e
+    return pd
 
 
 def _normalize_time_cols(df: pl.DataFrame) -> pl.DataFrame:
@@ -394,7 +408,10 @@ class TimeSeries(_TimeSeriesReprMixin):
         * ``VERSIONED``: ``(knowledge_time, valid_time)`` MultiIndex.
         * ``AUDIT``: ``(knowledge_time, change_time, valid_time)`` MultiIndex.
         * ``CORRECTED``: ``(valid_time, change_time)`` MultiIndex.
+
+        Requires the ``[pandas]`` extra.
         """
+        _import_pandas("to_pandas()")
         df = self._require_df().to_pandas()
 
         # Polars maps Datetime("us", tz="UTC") to pandas datetime64[us, UTC].
@@ -548,6 +565,7 @@ def _ingest_pandas_to_polars(df: pd.DataFrame) -> pl.DataFrame:
     3. Convert to Polars and cast timestamp columns to
        ``pl.Datetime("us", time_zone="UTC")``.
     """
+    pd = _import_pandas("from_pandas()")
     if isinstance(df.index, pd.MultiIndex):
         levels_to_reset = [n for n in df.index.names if n in _TIME_COLS]
     else:

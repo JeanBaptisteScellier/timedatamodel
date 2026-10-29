@@ -35,13 +35,22 @@ Example usage
 
 from __future__ import annotations
 
-import pandas as pd
+from typing import TYPE_CHECKING
+
 import polars as pl
 
 from .datashape import DataShape
 from .enums import DataType, Frequency, TimeSeriesType
 from .location import GeoArea, GeoLocation
-from .timeseries import TimeSeries, _ingest_pandas_to_polars, _normalize_time_cols
+from .timeseries import (
+    TimeSeries,
+    _import_pandas,
+    _ingest_pandas_to_polars,
+    _normalize_time_cols,
+)
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 _NON_VALUE_COLS: frozenset = frozenset({"valid_time", "valid_time_end"})
 
@@ -519,7 +528,11 @@ class TimeSeriesTable:
         )
 
     def to_pandas(self) -> pd.DataFrame:
-        """Convert to a ``pandas.DataFrame`` with ``valid_time`` as index."""
+        """Convert to a ``pandas.DataFrame`` with ``valid_time`` as index.
+
+        Requires the ``[pandas]`` extra.
+        """
+        _import_pandas("to_pandas()")
         return self._df.to_pandas().set_index("valid_time")
 
     def to_polars(self) -> pl.DataFrame:
